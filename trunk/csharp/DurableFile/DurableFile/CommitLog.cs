@@ -24,6 +24,26 @@ namespace DurableFile
     /// Commit Log class
     /// Write Ahead Logging (WAL)
     /// Recovery technique: Deferred Update
+    /// 
+    /// -----------------------------  0 byte
+    /// | [first block - header]    |
+    /// | checkpoint adr log_begin  |
+    /// | checkpoint adr log_write  |
+    /// | checkpoint adr log_end    |                       
+    /// |                           |
+    /// |                           |
+    /// | checkpoint_adr            | 2048 bytes
+    /// |                           |
+    /// |                           |
+    /// |                           |
+    /// |                           |
+    /// |                           |
+    /// ----------------------------- 4096 bytes
+    /// |   [second block]      
+    /// |   START_LOG_POSITION      |
+    /// |                           |
+    /// |                           |
+    /// |                           |
     /// </summary>
     class CommitLog
     {
@@ -34,7 +54,9 @@ namespace DurableFile
         private const int COMMIT_OPERATION = 3;
         private const int END_OPERATION = 4;
 
-        private const int START_LOG_POSITION = 2 * DurableFileStream.BLOCK_SIZE;
+        private const int START_LOG_POSITION = DurableFileStream.BLOCK_SIZE;
+
+        private const long CHECKPOINT_POSITION = 2048;
 
         /// <summary>
         /// Write a new checkpoint every <code>RENEW_CHECKPOINT_RANGE</code> bytes.
@@ -558,7 +580,7 @@ namespace DurableFile
 
         private void ReadCheckpointAddress()
         {
-            _fsLog.Seek(BLOCK_SIZE, SeekOrigin.Begin); // position: 4096
+            _fsLog.Seek(CHECKPOINT_POSITION, SeekOrigin.Begin);
 
             byte[] buffer = new byte[8];
             _fsLog.Read(buffer, 0, 8);
@@ -576,8 +598,9 @@ namespace DurableFile
             // clear first block on disk before writing log
             _fsLog.Seek(0, SeekOrigin.Begin); // go to first block
             ClearBuffer();
-            _bufferIdx = BLOCK_SIZE;
-            FlushBuffer();
+            _bufferIdx = 0;
+            //_bufferIdx = BLOCK_SIZE;
+            //FlushBuffer();
 
             // write log to the first block after clearing
             _fsLog.Seek(0, SeekOrigin.Begin); // go to first block
@@ -594,11 +617,12 @@ namespace DurableFile
             FlushBuffer();
             long lastLogPos = _fsLog.Position;
 
-            _fsLog.Seek(BLOCK_SIZE, SeekOrigin.Begin);
+            // write checkpoint address to log disk
+            _fsLog.Seek(CHECKPOINT_POSITION, SeekOrigin.Begin);
             _fsLog.Write(ckpWriteRecord.AFIM, 0, 8);
             _fsLog.Flush(true);
 
-            _fsLog.Seek(lastLogPos, SeekOrigin.Begin); // go to first block
+            _fsLog.Seek(lastLogPos, SeekOrigin.Begin); // return to last position
             prev_lsn = LogEnd(prev_lsn);
             FlushBuffer();
 
