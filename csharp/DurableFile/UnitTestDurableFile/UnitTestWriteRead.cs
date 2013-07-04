@@ -89,5 +89,50 @@ namespace UnitTestDurableFile
             Assert.IsTrue(Helper.EqualArray(readBuffer, writeBuffer));
         }
 
+        private void SampleCode1()
+        {
+            //  Writer
+            DurableFile.DurableFileStream dfs = new DurableFile.DurableFileStream("example1.dat", true);
+
+            long data = 78739;
+            // write to cache buffer only
+            dfs.Write(BitConverter.GetBytes(data), 0, 8);
+
+            data = 10254;
+            // write to cache buffer only
+            dfs.Write(BitConverter.GetBytes(data), 0, 8);
+
+            data = 85471;
+            // write to cache buffer only
+            dfs.Write(BitConverter.GetBytes(data), 0, 8);
+
+            // persist writes permanently to disk
+            dfs.Commit();
+            
+            dfs.Close();
+
+           
+        }
+
+        private void SampleCode2()
+        {
+            // Reader
+            DurableFile.DurableFileStream dfs = new DurableFile.DurableFileStream("example1.dat", false);
+            byte[] buffer = new byte[8];
+            dfs.Read(buffer, 0, 8);
+            long data = BitConverter.ToInt64(buffer, 0);
+            Console.WriteLine(data);
+
+            dfs.Read(buffer, 0, 8);
+            data = BitConverter.ToInt64(buffer, 0);
+            Console.WriteLine(data);
+
+            dfs.Read(buffer, 0, 8);
+            data = BitConverter.ToInt64(buffer, 0);
+            Console.WriteLine(data);
+
+            dfs.Close();
+        }
+
     }
 }
